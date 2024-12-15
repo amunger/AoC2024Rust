@@ -1,4 +1,5 @@
 use crate::file_input;
+use std::io::Write;
 
 const WIDTH: i32 = 101;
 const HEIGHT: i32 = 103;
@@ -42,45 +43,95 @@ fn get_position_after_times(robot: &Robot, times: i32)-> Point {
     }
 }
 
-fn print_room(room: &Vec<Vec<i32>>) {
+fn print_room(room: &Vec<Vec<i32>>, file_name: &str) {
+    let mut file = std::fs::File::create(file_name).unwrap();
     for i in 0..room.len() {
         for j in 0..room[i].len() {
-            print!("{}", room[i][j]);
+            let n = if room[i][j] > 0 { room[i][j].to_string() } else { ".".to_string() };
+            write!(file, "{}", n).unwrap();
         }
-        println!();
+        write!(file, "\n").unwrap();
     }
+}
+
+fn small_differece(a: i32, b: i32) -> bool {
+    (a - b).abs() < 2
 }
 
 pub fn solve() {
     let robots = get_robots();
-    let mut q1_bots = 0;
-    let mut q2_bots = 0;
-    let mut q3_bots = 0;
-    let mut q4_bots = 0;
 
-    let mut room: Vec<Vec<i32>> = vec![vec![0; WIDTH as usize]; HEIGHT as usize];    
+    for times in 0..10000 {
+        let mut top_corner_bots = 0;
+        let mut trunk_bots = 0;
+        let mut q1_bots = 0;
+        let mut q2_bots = 0;
+        let mut q3_bots = 0;
+        let mut q4_bots = 0;
+    
+        let mut room: Vec<Vec<i32>> = vec![vec![0; WIDTH as usize]; HEIGHT as usize];    
+    
+        for i in 0..robots.len() {
+            let robot = &robots[i];
+            let point = get_position_after_times(robot, times);
+    
+            room[point.y as usize][point.x as usize] += 1;
+    
+            if point.x + point.y < WIDTH / 4 {
+                top_corner_bots += 1;
+            } else if WIDTH - point.x + point.y < WIDTH / 4 {
+                top_corner_bots += 1;   
+            }
 
-    for i in 0..robots.len() {
-        let robot = &robots[i];
-        let point = get_position_after_times(robot, 100);
+            if point.x > WIDTH / 2 - 10 && point.x < WIDTH / 2 + 10
+            && point.y > HEIGHT - 10 {
+                trunk_bots += 1;
+            }
 
-        room[point.y as usize][point.x as usize] += 1;
+            if point.x < WIDTH/2 && point.y < HEIGHT/2 {
+                q1_bots += 1;
+            } else if point.x > WIDTH/2 && point.y < HEIGHT/2 {
+                q2_bots += 1;
+            } else if point.x < WIDTH/2 && point.y > HEIGHT/2 {
+                q3_bots += 1;
+            } else if point.x > WIDTH/2 && point.y > HEIGHT/2 {
+                q4_bots += 1;
+            }
+        }
 
-        if point.x < WIDTH/2 && point.y < HEIGHT/2 {
-            q1_bots += 1;
-        } else if point.x > WIDTH/2 && point.y < HEIGHT/2 {
-            q2_bots += 1;
-        } else if point.x < WIDTH/2 && point.y > HEIGHT/2 {
-            q3_bots += 1;
-        } else if point.x > WIDTH/2 && point.y > HEIGHT/2 {
-            q4_bots += 1;
+        let mut longest_line = 0;
+        for i in 0..HEIGHT {
+            for j in 0..WIDTH {
+                if room[i as usize][j as usize] > 0 {
+                    let mut line = 0;
+                    for k in j..WIDTH {
+                        if room[i as usize][k as usize] > 0 {
+                            line += 1;
+                        } else {
+                            break;
+                        }
+                    }
+                    if line > longest_line {
+                        longest_line = line;
+                    }
+                }
+            }
+        }
+
+        if longest_line > 10 {
+            println!("corner bots: {}, Times: {}", top_corner_bots, times);
+            let file_name = format!("{}-timesLongLine.txt", times);
+            print_room(&room, &file_name);
+        }
+
+        if top_corner_bots < 11 {
+            println!("corner bots: {}, Times: {}", top_corner_bots, times);
+            let file_name = format!("{}-times.txt", times);
+            print_room(&room, &file_name);
         }
     }
 
-    //print_room(&room);
-
-    println!("Q1: {}, Q2: {}, Q3: {}, Q4: {}", q1_bots, q2_bots, q3_bots, q4_bots);
-    println!("{}", q1_bots * q2_bots * q3_bots * q4_bots);
+    
 }
 
 struct Point {
