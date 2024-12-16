@@ -1,5 +1,6 @@
 use core::str;
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque, BinaryHeap};
+use std::cmp::Ordering;
 
 use crate::file_input;
 
@@ -9,24 +10,26 @@ struct Point {
     y: i32,
 }
 
-#[derive(Hash, Eq, PartialEq, Debug, Clone, Copy)]
+#[derive(Eq, PartialEq)]
 struct Visit {
     point: Point,
     cost: i32,
 }
 
 impl Ord for Visit {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+    fn cmp(&self, other: &Self) -> Ordering {
+        // Reverse the order to make BinaryHeap a min-heap
         other.cost.cmp(&self.cost)
     }
 }
 
 impl PartialOrd for Visit {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
+#[derive(Clone)]
 struct Parent {
     parent: Point,
     turn: bool,
@@ -101,89 +104,76 @@ fn get_neighbors(p: &Point, map: &Map) -> Vec<Point>{
     for d in &directions {
         let x = p.x + d[0];
         let y = p.y + d[1];
-        if !map.cells[x as usize][y as usize].blocked {
+        if x >= 0 && y >= 0 && x < map.cells.len() as i32 && y < map.cells[0].len() as i32 && !map.cells[x as usize][y as usize].blocked {
             neighbors.push(Point { x, y });
         }
     };
     return neighbors;
 }
 
-fn next_point(p: &Point, direction: [i32; 2]) -> Point {
+fn node_point(p: &Point, direction: [i32; 2]) -> Point {
     Point { x: p.x + direction[0], y: p.y + direction[1] }
 }
 
 fn bfs_with_path(map: &mut Map) {
     let mut visited: HashMap<Point, i32> = HashMap::new();
-    let mut queue = std::collections::BinaryHeap::new();
+    let mut queue = BinaryHeap::new();
     let mut parent_map: HashMap<Point, Option<Parent>> = HashMap::new();
 
-    visited.insert( map.start, 0);
-    
     queue.push(Visit { point: map.start, cost: 0 });
     parent_map.insert(map.start, None);
 
     while let Some(visit) = queue.pop() {
+        if let Some(parent) = parent_map.get(&visit.point) {
+            if let Some(parent) = parent {
+                visited.insert(parent.parent, visit.cost);
+            }
+        }
+
+        //println!("Visiting: {:?} with cost {:?}", visit.point, visit.cost);
         let node = visit.point;
-        let direction = 
-                    if let Some(p) = parent_map.get(&node) {
-                        if let Some(p) = p {
-                            [node.x - p.parent.x, node.y - p.parent.y]
-                        } else {
-                            [0, 1]
-                        }
-                    } else {
-                        [0, 1]
-                    };
-
-        let mut next = node;
-        while !map.cells[next.x as usize][next.y as usize].blocked {
-            if !parent_map.contains_key(&next) {
-                parent_map.insert(next, Some(Parent { parent: node, turn: false }));
+        let direction = if let Some(p) = parent_map.get(&node) {
+            if let Some(p) = p {
+                [node.x - p.parent.x, node.y - p.parent.y]
+            } else {
+                [0, 1]
             }
-            let straight = next_point(&next, direction);
-            for neighbor in get_neighbors(&next, map) {
-                if neighbor == map.end {
-                    let mut cost = 
-                        if neighbor == straight {
-                            1
-                        } else {
-                            1001
-                        };
+        } else {
+            [0, 1]
+        };
 
-                    // Reconstruct the path from start to target
-                    map.cells[next.x as usize][next.y as usize].path = true;
+        if !parent_map.contains_key(&node) {
+            parent_map.insert(node, Some(Parent { parent: node, turn: false }));
+        }
 
-                    let mut previous = &parent_map[&next];
-                    while let Some(n) = previous {
-                        if n.turn {
-                            cost += 1001;
-                        } else {
-                            cost += 1;
-                        }
-                        map.cells[n.parent.x as usize][n.parent.y as usize].path = true;
-                        previous = &parent_map[&n.parent];
-                    }
-                    println!("Cost: {}", cost);
-                    return;
-                }
+        let straight = node_point(&node, direction);
+        for neighbor in get_neighbors(&node, map) {
+            if neighbor == map.end {
+                let mut cost = if neighbor == straight { 1 } else { 1001 };
 
-                let step_cost = 
-                    if neighbor == straight {
-                        1
+                // Reconstruct the path from start to target
+                map.cells[node.x as usize][node.y as usize].path = true;
+
+                let mut previous = &parent_map[&node];
+                while let Some(n) = previous {
+                    if n.turn {
+                        cost += 1001;
                     } else {
-                        1001
-                    };
-                if !visited.contains_key(&neighbor) || visit.cost + step_cost < *visited.get(&neighbor).unwrap() {
-                    //println!("Visiting {:?}", neighbor);
-                    visited.insert(neighbor, visit.cost + step_cost);
-                    if neighbor != straight {
-                        queue.push(Visit {point: neighbor, cost: visit.cost + step_cost});
+                        cost += 1;
                     }
-                    parent_map.insert(neighbor, Some(Parent { parent: next, turn: neighbor != straight }));
+                    map.cells[n.parent.x as usize][n.parent.y as usize].path = true;
+                    previous = &parent_map[&n.parent];
                 }
+                println!("Cost: {}", cost);
+                return;
             }
 
-            next = straight;
+            let step_cost = if neighbor == straight { 1 } else { 1001 };
+
+            if !visited.contains_key(&neighbor) || visit.cost + step_cost < *visited.get(&neighbor).unwrap() {
+                queue.push(Visit { point: neighbor, cost: visit.cost + step_cost });
+                parent_map.insert(neighbor, Some(Parent { parent: node, turn: neighbor != straight }));
+            }
         }
     }
 }
@@ -191,7 +181,7 @@ fn bfs_with_path(map: &mut Map) {
 pub fn solve(){
     let mut map = parse_input(&file_input::read_input());
     bfs_with_path(&mut map);
-    print_map(&map);
+    //print_map(&map);
 }
 
 // 72432 too high
