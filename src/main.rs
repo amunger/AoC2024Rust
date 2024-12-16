@@ -1,6 +1,6 @@
-mod day15;
+mod day16;
 mod file_input;
 
 fn main() {
-    day15::solve();
+    day16::solve();
 }
