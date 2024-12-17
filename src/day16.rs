@@ -16,6 +16,12 @@ struct Visit {
     cost: i32,
 }
 
+#[derive(Hash, Eq, PartialEq, Debug, Clone, Copy, Ord, PartialOrd)]
+struct Step {
+    point: Point,
+    direction: [i32; 2],
+}
+
 impl Ord for Visit {
     fn cmp(&self, other: &Self) -> Ordering {
         // Reverse the order to make BinaryHeap a min-heap
@@ -116,7 +122,7 @@ fn node_point(p: &Point, direction: [i32; 2]) -> Point {
 }
 
 fn bfs_with_path(map: &mut Map) {
-    let mut visited: HashMap<Point, i32> = HashMap::new();
+    let mut visited: HashMap<Step, i32> = HashMap::new();
     let mut queue = BinaryHeap::new();
     let mut parent_map: HashMap<Point, Option<Parent>> = HashMap::new();
 
@@ -124,12 +130,6 @@ fn bfs_with_path(map: &mut Map) {
     parent_map.insert(map.start, None);
 
     while let Some(visit) = queue.pop() {
-        if let Some(parent) = parent_map.get(&visit.point) {
-            if let Some(parent) = parent {
-                visited.insert(parent.parent, visit.cost);
-            }
-        }
-
         //println!("Visiting: {:?} with cost {:?}", visit.point, visit.cost);
         let node = visit.point;
         let direction = if let Some(p) = parent_map.get(&node) {
@@ -141,6 +141,12 @@ fn bfs_with_path(map: &mut Map) {
         } else {
             [0, 1]
         };
+
+        if let Some(parent) = parent_map.get(&visit.point) {
+            if let Some(parent) = parent {
+                visited.insert(Step { point: parent.parent, direction }, visit.cost);
+            }
+        }
 
         if !parent_map.contains_key(&node) {
             parent_map.insert(node, Some(Parent { parent: node, turn: false }));
@@ -170,7 +176,9 @@ fn bfs_with_path(map: &mut Map) {
 
             let step_cost = if neighbor == straight { 1 } else { 1001 };
 
-            if !visited.contains_key(&neighbor) || visit.cost + step_cost < *visited.get(&neighbor).unwrap() {
+            let step = Step { point: node, direction };
+            if !visited.contains_key(&step) || visit.cost + step_cost < *visited.get(&step).unwrap() {
+                visited.insert(step, visit.cost + step_cost);
                 queue.push(Visit { point: neighbor, cost: visit.cost + step_cost });
                 parent_map.insert(neighbor, Some(Parent { parent: node, turn: neighbor != straight }));
             }
@@ -181,7 +189,8 @@ fn bfs_with_path(map: &mut Map) {
 pub fn solve(){
     let mut map = parse_input(&file_input::read_input());
     bfs_with_path(&mut map);
-    //print_map(&map);
+    print_map(&map);
 }
 
 // 72432 too high
+72428
