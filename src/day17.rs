@@ -26,7 +26,7 @@ impl Interpreter {
     }
 
     fn print_output(&self) {
-        println!("output: {}\n", self.output.iter().map(|x| x.to_string()).collect::<Vec<String>>().join(","));
+        println!("output: {}", self.output.iter().map(|x| x.to_string()).collect::<Vec<String>>().join(","));
     }
 
     pub fn execute(&mut self) {
@@ -132,14 +132,30 @@ pub fn solve(){
 }
 
 pub fn solvept2(){
-    let mut prev: Vec<i64> = Vec::new();
-    for i in 0..=255 {
-        let mut intepreter = parse_input(&file_input::read_input());
-        intepreter.reg_a = i;
-        intepreter.execute();
-        if prev != intepreter.output{
-            println!("{}: {:?}", i, intepreter.output);
+    let answer = vec![2,4,1,5,7,5,4,5,0,3,1,6,5,5,3,0];
+    let mut candidites = vec![0, 1, 2, 3, 4, 5, 6, 7];
+    let mut new_candidates = vec![];
+    //               109157309200000:
+    for i in answer.iter().rev() {
+        for c in candidites.iter() {
+            let mut intepreter = parse_input(&file_input::read_input());
+            println!("{:?}", c);
+            intepreter.reg_a = *c;
+            intepreter.execute();
+            intepreter.print_output();
+            if intepreter.output[0] == *i {
+                new_candidates.push(*c * 8);
+            }
         }
-        prev = intepreter.output;
-    }    
+        candidites = new_candidates.clone();
+        println!("{:?}", candidites);
+        new_candidates.clear();
+    }
+
+    println!("{:?}", candidites);
 }
+
+//2,4,1,5,7,5,4,5,0,3,1,6,5,5,3,0
+//6,5,1,5,7,5,4,5,0,3,1,6,5,5,3,0
+
+// 109019930332928 - 109019930329592
